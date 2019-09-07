@@ -1,0 +1,7 @@
+# Byte-compiled
+__pycache__/
+*.pyc
+
+# PyCharm
+.idea
+.DS_Store
