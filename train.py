@@ -5,25 +5,25 @@ from data_processing import BATCH_SIZE, IMG_SHAPE, EPOCHS, data_flow, val_data_f
 
 # creating FoodNet
 def FoodNet(train_type = "classifier", num_classes = 404):
-  base = keras.applications.inception_v3.InceptionV3(include_top = False,
-                                                     weights = "imagenet",
-                                                     input_shape = (*IMG_SHAPE, 3),
-                                                     pooling="avg")
+  base = keras.applications.inception_resnet_v2.InceptionResNetV2(include_top = False,
+                                                                  weights = "imagenet",
+                                                                  input_shape = (*IMG_SHAPE, 3),
+                                                                  pooling="avg")
   x = base.output
-  x = keras.layers.Dropout(0.4)(x)
-  x = keras.layers.Dense(512, activation="relu")(x)
-  x = keras.layers.Dense(256)(x)
-  x = keras.layers.BatchNormalization()(x)
-  x = keras.layers.Activation("relu")(x)
   predictions = keras.layers.Dense(num_classes, activation="softmax", name="predictions")(x)
 
   food_net = keras.Model(inputs=base.input, outputs=predictions)
   if train_type == "classifier":
-    for layer in food_net.layers[:-60]:
+    food_net.layers[-1].trainable = False
+  else:
+    for layer in food_net.layers[:-int(len(food_net.layers) * 0.3)]: # top 30% of base network is trained
       layer.trainable = False
 
-  print(len(food_net.layers))
   return food_net
+
+# callbacks
+def lr_schedule(epoch, lr):
+  return lr * (1.0 / (1.0 + 5.0 * epoch))
 
 if __name__ == "__main__":
   image_generator = data_flow()
@@ -32,11 +32,16 @@ if __name__ == "__main__":
   food_net = FoodNet(train_type="classifier", num_classes=len(image_generator.class_indices))
   food_net.summary()
 
-  food_net.compile(optimizer=keras.optimizers.SGD(lr=0.01, momentum=0.9), loss="categorical_crossentropy",
-                   metrics=["accuracy"])
-  food_net.fit_generator(image_generator, steps_per_epoch=int(len(image_generator.classes) / BATCH_SIZE), epochs=EPOCHS,
+  optimizer = keras.optimizers.SGD(lr=0.01, momentum=0.9)
+  food_net.compile(optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"])
+  food_net.fit_generator(image_generator,
+                         steps_per_epoch=int(len(image_generator.classes) / BATCH_SIZE),
+                         epochs=EPOCHS,
                          validation_data=val_data_flow(),
-                         validation_steps=int(len(image_generator.classes) / BATCH_SIZE), verbose=1)
+                         validation_steps=int(len(image_generator.classes) / BATCH_SIZE),
+                         verbose=1,
+                         callbacks=[keras.callbacks.LearningRateScheduler(lr_schedule)]
+                         )
   food_net.save("/home/ryan/PycharmProjects/food-net/foodnet_v1.h5")
 
   # second pass: fine-tuning whole network

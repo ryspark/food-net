@@ -1,11 +1,12 @@
 import keras
 import numpy as np
+import tensorflow as tf
 
 # constants
 IMG_SHAPE = (400, 300)
 CROP_SIZE = (333, 250)
 BATCH_SIZE = 8
-EPOCHS = 3
+EPOCHS = 1
 
 # data generator
 def data_flow():
@@ -26,7 +27,7 @@ def data_flow():
     fill_mode="nearest",
     cval=0.,
     horizontal_flip=True,
-    vertical_flip=True,
+    vertical_flip=False,
     rescale=1./255,
     preprocessing_function=keras.applications.inception_resnet_v2.preprocess_input,
     data_format=None,
@@ -43,7 +44,7 @@ def data_flow():
     shuffle=True
   )
 
-  # return image_generator.class_indices, len(image_generator.classes), add_random_crops(image_generator)
+  # return add_random_crops(image_generator)
   return image_generator
 
 def val_data_flow():
@@ -57,18 +58,20 @@ def val_data_flow():
     shuffle=True
   )
 
-def add_random_crops(flow_from_dir, crop_size = CROP_SIZE):
+  return image_generator
 
-  def random_crop(img, size):
-    height, width = img.shape[0], img.shape[1]
-    change_y, change_x = size
-    x = np.random.randint(0, width - change_x + 1)
-    y = np.random.randint(0, height - change_y + 1)
-    return img[y:(y + change_y), x:(x + change_x), :]
+def add_random_crops(flow_from_dir, crop_size = CROP_SIZE):
+  #
+  # def random_crop(img, size):
+  #   height, width = img.shape[0], img.shape[1]
+  #   change_y, change_x = size
+  #   x = np.random.randint(0, width - change_x + 1)
+  #   y = np.random.randint(0, height - change_y + 1)
+  #   return img[y:(y + change_y), x:(x + change_x), :]
 
   while True:
     batch, labels = next(flow_from_dir)
     cropped_batches = np.empty((batch.shape[0], *crop_size, 3))
     for index, img in enumerate(cropped_batches.shape[0]):
-      cropped_batches[index] = random_crop(img, crop_size)
+      cropped_batches[index] = tf.random_crop(img, crop_size) # random_crop(img, crop_size)
     yield (cropped_batches, labels)
